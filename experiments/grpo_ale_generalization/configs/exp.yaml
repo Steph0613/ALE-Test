@@ -1,0 +1,154 @@
+# ===========================================================================
+# GRPO ALE-Bench Generalization Experiment Configuration
+# ===========================================================================
+# Change ONLY this file to switch problems, splits, and key hyperparameters.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Problem pool & train/test split
+# ---------------------------------------------------------------------------
+# Fill in 12 problem_ids. Use `tools/list_problems.py` to see all available.
+# Rule:
+#   1) If train_problem_ids AND test_problem_ids are both non-empty -> use them directly.
+#   2) Else if problem_pool has >=12 items -> shuffle with split_seed, first 8=train, last 4=test.
+#   3) Else -> error; run tools/list_problems.py to pick 12 problems.
+problem_pool: []
+  # Example (uncomment & fill):
+  # - ahc001
+  # - ahc002
+  # - ahc003
+  # - ahc004
+  # - ahc005
+  # - ahc006
+  # - ahc007
+  # - ahc008
+  # - ahc009
+  # - ahc010
+  # - ahc011
+  # - ahc012
+
+train_problem_ids: []
+test_problem_ids: []
+split_seed: 42
+num_train: 8
+num_test: 4
+
+# ---------------------------------------------------------------------------
+# Code language & judge
+# ---------------------------------------------------------------------------
+code_language: "cpp17"          # "cpp17" | "python3" | "cpp20" | "cpp23"
+judge_version: "202301"         # "201907" | "202301"
+lite_version: true              # use lite seeds (smaller test sets, faster)
+
+# ---------------------------------------------------------------------------
+# Iterative refinement (multi-round trajectory)
+# ---------------------------------------------------------------------------
+iterative_refine_num_rounds: 3  # R: number of rounds per episode
+# For smoke test, override to 2
+
+# ---------------------------------------------------------------------------
+# Seed strategy for evaluation during training & final eval
+# ---------------------------------------------------------------------------
+train_k_seeds: 3               # K: number of seeds per evaluation call during training
+eval_n_seeds: 5                # number of seeds for final evaluation
+seed_strategy_eval: "public"   # "public" | "private" | "mixed"
+# "public" -> use first N public seeds; "private" -> first N private seeds
+
+# ---------------------------------------------------------------------------
+# Remote evaluator
+# ---------------------------------------------------------------------------
+remote_evaluator_url: "http://10.214.54.87:8000"
+remote_evaluator_api_key: ""   # optional, leave empty for no auth
+remote_evaluator_timeout: 300  # seconds per evaluate call
+client_max_concurrent: 4       # max concurrent evaluate requests from training side
+
+# ---------------------------------------------------------------------------
+# Reward design
+# ---------------------------------------------------------------------------
+reward:
+  # Per-problem normalization: running z-score with EMA
+  normalization: "zscore_ema"   # "zscore_ema" | "raw_clip" | "none"
+  ema_alpha: 0.1                # EMA decay for running mean/std
+  clip_min: -3.0
+  clip_max: 3.0
+  # Penalty scores for failure types
+  penalty:
+    NO_CODE: -2.0
+    COMPILE_ERROR: -1.5
+    RUNTIME_ERROR: -1.0
+    TIME_LIMIT_EXCEEDED: -1.0
+    MEMORY_LIMIT_EXCEEDED: -1.0
+    WRONG_ANSWER: -0.5
+  # Incremental reward: reward_t = clip(norm(best_after) - norm(best_before))
+  incremental: true
+  # Time penalty coefficient (subtracted from reward): coeff * mean_time / time_limit
+  time_penalty_coeff: 0.0       # set >0 to penalize slow solutions
+
+# ---------------------------------------------------------------------------
+# Dataset generation (make_dataset.py)
+# ---------------------------------------------------------------------------
+dataset:
+  samples_per_problem: 4        # how many episode starts per problem
+  output_dir: "experiments/grpo_ale_generalization/data/train_data"
+  output_format: "jsonl"        # "jsonl" | "parquet"
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+model:
+  name_or_path: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+  max_new_tokens: 4096
+  temperature: 0.7
+  top_p: 0.95
+
+# ---------------------------------------------------------------------------
+# Training (GRPO via VeRL)
+# ---------------------------------------------------------------------------
+training:
+  # --- smoke config (override with --smoke flag) ---
+  smoke:
+    total_steps: 4
+    batch_size: 2
+    group_size: 2
+    gradient_accumulation_steps: 1
+    iterative_refine_num_rounds: 2
+    train_k_seeds: 1
+    num_problems_per_batch: 2    # sample N problems per batch
+  # --- main config ---
+  main:
+    total_steps: 200
+    batch_size: 8
+    group_size: 4
+    gradient_accumulation_steps: 2
+    num_problems_per_batch: 4
+
+  # Common
+  learning_rate: 1.0e-5
+  warmup_steps: 10
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  lora:
+    enabled: true
+    rank: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  bf16: true
+  gradient_checkpointing: true
+
+# ---------------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------------
+eval:
+  checkpoint_path: ""           # set via CLI --ckpt
+  output_dir: "experiments/grpo_ale_generalization/results"
+  eval_n_seeds: 5
+  iterative_refine_num_rounds: 3
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  log_dir: "experiments/grpo_ale_generalization/logs"
+  log_every_n_steps: 1
+  save_every_n_steps: 50

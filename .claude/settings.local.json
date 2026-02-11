@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PYTHONPATH=src:. python -c \"\nimport random\n\n# Simulate the split logic from make_dataset.py\npool = [''ahc001'',''ahc002'',''ahc003'',''ahc004'',''ahc005'',''ahc006'',''ahc007'',''ahc008'',''ahc009'',''ahc010'',''ahc011'',''ahc012'']\nseed = 42\nrng = random.Random(seed)\nshuffled = list(pool)\nrng.shuffle(shuffled)\ntrain_ids = shuffled[:8]\ntest_ids = shuffled[8:12]\nprint(f''Split with seed={seed}:'')\nprint(f''  Train ({len(train_ids)}): {train_ids}'')\nprint(f''  Test  ({len(test_ids)}): {test_ids}'')\n\n# Verify reproducibility\nrng2 = random.Random(seed)\nshuffled2 = list(pool)\nrng2.shuffle(shuffled2)\nassert shuffled == shuffled2, ''Not reproducible!''\nprint(''  Reproducibility: OK'')\n\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

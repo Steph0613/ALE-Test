@@ -1,0 +1,99 @@
+# ===========================================================================
+# VeRL GRPO Training Configuration
+# ===========================================================================
+# This file configures VeRL's GRPO trainer. Adapt field names to match
+# the VeRL version installed in your environment.
+# ===========================================================================
+
+trainer:
+  type: "grpo"
+  total_epochs: 1
+
+  # GRPO specific
+  grpo:
+    group_size: 4                # G: number of responses per prompt
+    kl_coeff: 0.01               # KL penalty coefficient
+    clip_range: 0.2              # PPO-style clip range
+    entropy_coeff: 0.01          # entropy bonus
+    value_loss_coeff: 0.0        # GRPO has no value head
+
+  # Optimization
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-5
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  scheduler:
+    type: "cosine"
+    warmup_steps: 10
+    min_lr_ratio: 0.1
+
+  # Batch
+  batch_size: 8                  # prompts per step
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+
+  # Precision & memory
+  bf16: true
+  gradient_checkpointing: true
+
+  # Checkpointing
+  save_steps: 50
+  save_dir: "experiments/grpo_ale_generalization/checkpoints"
+
+# Model
+model:
+  name_or_path: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+  max_length: 8192               # max context length
+  max_new_tokens: 4096
+
+# LoRA
+peft:
+  enabled: true
+  type: "lora"
+  rank: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# Dataset
+data:
+  train_path: "experiments/grpo_ale_generalization/data/train_data/dataset.jsonl"
+  prompt_key: "prompt"
+  extra_info_key: "extra_info"
+
+# Custom reward function
+reward:
+  type: "custom"
+  module: "experiments.grpo_ale_generalization.reward.ale_reward"
+  function: "compute_reward"
+
+# Rollout (generation)
+rollout:
+  temperature: 0.7
+  top_p: 0.95
+  max_new_tokens: 4096
+
+# Distributed
+distributed:
+  # 8x H800: use FSDP with auto_wrap
+  strategy: "fsdp"
+  fsdp:
+    auto_wrap_policy: "transformer_based_wrap"
+    sharding_strategy: "FULL_SHARD"
+    cpu_offload: false
+
+# Logging
+logging:
+  project: "grpo_ale_generalization"
+  log_dir: "experiments/grpo_ale_generalization/logs"
+  log_interval: 1
