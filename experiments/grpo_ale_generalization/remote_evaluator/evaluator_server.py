@@ -275,7 +275,7 @@ async def evaluate(
             gen_kwargs: dict[str, Any] = {}
             t_gen_start = time.time()
             inputs = await asyncio.to_thread(
-                generate_inputs, req.seeds, gen_kwargs, tool_dir / "tools"
+                generate_inputs, req.seeds, gen_kwargs, tool_dir
             )
             t_gen_end = time.time()
 
@@ -304,7 +304,7 @@ async def evaluate(
                 memory_limit,
                 req.problem_id,
                 problem_type,
-                tool_dir / "tools",
+                tool_dir,
                 req.return_details,
                 req.skip_local_visualization,
                 1,  # num_workers: run sequentially per evaluation to limit Docker overhead
